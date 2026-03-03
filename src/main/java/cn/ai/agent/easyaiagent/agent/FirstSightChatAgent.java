@@ -16,6 +16,16 @@ public class FirstSightChatAgent {
     @Resource
     private ChatModel chatModel;
 
+    /**
+     * 与大模型进行简单对话交互
+     * <p>
+     * 知识点：基础用户消息 (Basic User Message)
+     * 将普通字符串包装为 langchain4j 能识别的 UserMessage，这是最基础的文本对话形式。
+     * </p>
+     * 
+     * @param message 用户输入的文本消息
+     * @return AI 回复的文本内容
+     */
     public String chat(String message) {
         UserMessage userMessage = UserMessage.userMessage(message);
         ChatResponse chatResponse = chatModel.chat(userMessage);
@@ -23,24 +33,28 @@ public class FirstSightChatAgent {
     }
 
     /**
-     * UserMassage 支持多种类型的消息
+     * 发送包含多种类型内容的复杂消息给 AI（支持多模态）
+     * <p>
+     * 知识点：多模态对话 (Multimodal Chat)
+     * UserMessage 不仅支持纯文本，还可以包含图片 (ImageContent)、音频 (AudioContent) 等多种模态的内容。
+     * </p>
      * <p>
      * 参数构造示例：
+     * 
      * <pre>
      * // 1. 纯文本
      * UserMessage textMessage = UserMessage.from("你好");
      *
      * // 2. 文本 + 图片
      * UserMessage multiModalMessage = UserMessage.from(
-     *     TextContent.from("分析这张图片"),
-     *     ImageContent.from("https://example.com/image.png")
-     * );
+     *         TextContent.from("分析这张图片"),
+     *         ImageContent.from("https://example.com/image.png"));
      *
      * // 3. 其他类型（如 Audio, Video, File）
      * // 需使用对应的 Content 实现类，例如：AudioContent.from(...), VideoContent.from(...)
      * </pre>
      *
-     * @param userMessage 用户消息对象
+     * @param userMessage 用户消息对象（可以是纯文本，也可以是多模态内容组合）
      * @return AI 回复内容
      */
     public String chatWithUserMessage(UserMessage userMessage) {
@@ -49,16 +63,18 @@ public class FirstSightChatAgent {
     }
 
     /**
-     * 系统提示词 (System Message)
+     * 带有系统设定（人设）的对话交互
      * <p>
+     * 知识点：系统提示词 (System Message)
+     * 系统提示词就像给 AI 设定的“剧本”或“人设”。
      * 作用：
      * 1. 设定 AI 的角色（如：你是一个专业的翻译官）
-     * 2. 规定 AI 的行为准则（如：只输出翻译结果，不输出其他内容）
-     * 3. 提供背景信息或上下文
+     * 2. 规定 AI 的行为准则（如：只输出翻译结果，不输出解释）
+     * 3. 提供对话的全局背景信息或上下文
      * </p>
      *
-     * @param message   用户输入的消息
-     * @param systemMsg 系统提示词内容
+     * @param message   用户输入的提问内容
+     * @param systemMsg 给 AI 设定的系统提示词（人设/规则）
      * @return AI 回复内容
      */
     public String chatWithSystemMessage(String message, String systemMsg) {
