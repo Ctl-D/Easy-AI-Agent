@@ -93,3 +93,96 @@ public String chatWithSystemMessage(String message, String systemMsg) {
     return chatResponse.aiMessage().text();
 }
 ```
+
+## 4. 声明式 AI 服务 (AI Services)
+### 概念定义
+AI Services 是一种高级声明式（Declarative）编程模型，它将对底层大语言模型（LLM）的复杂调用逻辑（包括请求构造、消息序列化、响应解析、出错重试等）抽象并隐藏起来。开发者只需定义简单的 Java 接口，并通过注解来描述期望的行为即可。
+
+### 白话文解释
+这就像是你把一个精通多国语言的万能助手（大语言模型）包装在一个带有特定标签的“处理窗口”后面。你不必每天关心这个助手怎么吃饭、怎么通勤（底层如何构造网络请求、怎么解析返回的 JSON），你只需要在窗口贴个纸条（写个接口），上面写好规则“这是一个专业英语翻译窗口”（使用 `@SystemMessage` 注解），并且可以从外部文件（Resource）把厚厚的“翻译规则说明书”挂上去。然后你只需要把要翻译的词汇递进去，就可以直接拿到翻译结果。这个提供便捷服务的黑盒，就是 AI Service。
+
+### 框架使用示例
+在 LangChain4j 中，我们可以通过简单的接口与 `@SystemMessage` 注解结合来快速构建一个带有特定人设的 Agent，同时还需要使用 `AiServices` 工厂类将其与具体的大模型实例绑定。本例涵盖了两种不同的支持形式：
+
+```java
+// 方式一：直接在代码中通过注解写死系统提示词
+public interface EnglishHelperService {
+    // 明确设定其人设。底层会自动转化为 SystemMessage 一起发送给大模型
+    @SystemMessage("你是一位专业的单词翻译专家，只能返回翻译后的单词或句子")
+    String chat(String message);
+}
+
+// 方式二：外部加载提示词配置（推荐，方便实现业务逻辑与 Prompt 的解耦）
+public interface ResourceEnglishHelperService {
+    // 从 classpath 资源目录下加载大段复杂的提示词文件
+    @SystemMessage(fromResource = "systemmessage/english_helper_system_message.txt")
+    String chat(String message);
+}
+```
+
+绑定大模型并生成可调用代理类的工厂方法示例：
+```java
+@Configuration
+public class AIServiceFactory {
+    // 注入一个具体的模型实现（如 OpenAiChatModel 等）
+    @Resource
+    private ChatModel chatModel;
+
+    @Bean
+    public EnglishHelperService englishHelperService() {
+        // 使用 AiServices 动态代理工厂类，将接口与模型进行绑定
+        return AiServices.create(EnglishHelperService.class, chatModel);
+    }
+}
+
+## 5. 声明式 AI 服务自动配置 (@AiService)
+### 概念定义
+在框架与 Spring Boot 深度集成时，通过特定的注解（如 `@AiService`），不再需要开发者手动编写工厂类或配置类去“创建”并“绑定”声明式 AI 服务接口，而是由框架自动扫描、创建代理实例并注册到 Spring 容器中，供其他组件直接注入使用。我们依然可以使用 `@SystemMessage` 等特性。
+
+### 白话文解释
+之前你找那个“万能翻译助手”时，不仅要写好“窗口（接口）”，还得自己去找一个经理（工厂类），告诉经理把这个“窗口”和“助手（大模型）”对接起来。现在有了 `@AiService` 注解，就像是上面下发了“一键智能办公系统”。你只需要在“窗口”上贴一张名为 `@AiService` 的公章，系统就会自动帮你把后面的各种杂活、跟助手的对接全部搞定，你什么配置代码都不用写，直接用就行了。
+
+### 框架使用示例
+在 LangChain4j 的 Spring Boot 扩展中，结合 `@SystemMessage` 等注解，仅需一个 `@AiService` 即可完成智能体的创建与注册。
+
+```java
+import dev.langchain4j.service.SystemMessage;
+import dev.langchain4j.service.spring.AiService;
+
+// 加上 @AiService 注解后，Spring 启动时会自动实现该接口并交由 IOC 容器管理，无需自己编写 @Configuration 以及工厂去创建
+@AiService
+public interface AIServiceWithFrameworkAnnotationEnglishHelperService {
+
+    // 同样可以使用之前提到的支持从外部读取复杂的人设和提示词的功能
+    @SystemMessage(fromResource = "systemmessage/english_helper_system_message.txt")
+    String chat(String message);
+}
+```
+
+## 6. 架构方案对比：自定义编排会话 vs 注解式声明服务 (AI Services)
+### 关联性
+在 LangChain4j 中，无论是像 `FirstSightChatAgent` 那样手动组装 `UserMessage`、`SystemMessage` 并调用 `ChatModel`，还是像使用 `@SystemMessage` 和 `@AiService` 那样通过接口声明，它们的底层依然都是向大模型发送对话请求。它们是同一目的的两条不同路径：前者是**命令式 (Imperative)** 调用，后者是**声明式 (Declarative)** 封装。
+
+### 优缺点分析及适用场景
+
+#### 1. 自定义编排会话方式 (例如: FirstSightChatAgent)
+- **优点 (Pros)**：
+  - **极高的灵活性与控制力**：可以直接在代码中动态拼接前后台逻辑，随时修改或替换消息体的类型和内容。例如：根据不同的业务条件临时增删某几条历史 `AiMessage`，或动态组装多模态 `ImageContent`。
+  - **调试方便**：执行流直观，没有被动态代理包装，方便直接断点跟踪入参和出参流。
+- **缺点 (Cons)**：
+  - **代码冗长繁琐**：每次交互都需要写大量的包装（如 `UserMessage.userMessage`）和解析代码。
+  - **业务耦合**：系统提示词等底层 AI 参数往往跟业务代码混淆在一起，如果有复杂的多轮记忆（Memory）或工具调用（Tools），手动编排的复杂度呈指数级上升。
+- **适用场景**：
+  - 需要非常复杂或动态变化的消息构建逻辑。
+  - 需要在单次请求中精细控制多种不同类型模型交互的底层组件编写。
+
+#### 2. 注解式声明服务 (例如: @SystemMessage / @AiService)
+- **优点 (Pros)**：
+  - **开发极其便捷**：只需要定义一个接口并添加相关注解，框架自动接管所有的请求构建、响应解析工作。极大减少了样板代码（Boilerplate）。
+  - **高解耦与规范化**：通过 `@SystemMessage(fromResource=...)`，可以把动辄几千字的 Prompt 完全隔离到专门的资源文件中，从而提升工程的可维护性。对多轮对话记忆、工具调用的支持也都只需要加上对应注解即可。
+- **缺点 (Cons)**：
+  - **灵活性受限**：由于被深层封装，很难介入单次请求前后的微小行为干预（例如想要部分动态覆写某次系统提示词或针对个别消息采用特殊的超时控制，就会比较麻烦）。
+  - **黑盒效应**：出了问题（比如框架解析特定类型的返回 JSON 失败）时排查和调试门槛较高。
+- **适用场景**：
+  - 标准化、流程化的 Agent 业务（如客服问答、信息抽取、各类角色助手），尤其是已经有固定输入输出模式的场景。
+  - 团队开发中，由架构师配置好底层模型，业务开发人员只需专注接口定义的高效协同模式。
