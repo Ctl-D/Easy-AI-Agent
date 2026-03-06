@@ -31,4 +31,11 @@ public class FirstSightChatAgentTest {
     public void systemMessageTest() {
         agent.chatWithSystemMessage("Advance", EnglishHelperSystemMessage.SYSTEM_MESSAGE);
     }
+
+
+    @Test
+    public void chatWithChatRequestTest() {
+        String message = agent.chatWithChatRequest("你是谁？");
+        System.out.println(message);
+    }
 }

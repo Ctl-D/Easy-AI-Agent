@@ -141,6 +141,12 @@ public class AIServiceFactory {
 
 **白话文解释**：这就好比之前找“万能翻译助手”时，你不仅要写好“窗口（接口）”，还得自己去找一个经理（工厂类），告诉他把这个“窗口”和“助手（大模型）”对接起来。现在有了 `@AiService`，就像有了“一键智能办公系统”。你只需在“窗口”上盖一个 `@AiService` 的公章，系统就会自动帮你把后面的杂活全部接管，你直接拿来用就行了。
 
+>**注意（配置避坑）：多实例架构下的 Bean 注入冲突与 wiringMode**
+>在实际项目中，系统可能不仅只有一个大模型或相关配置，而是同时注册了多个不同类型或参数的 Bean。根据 langchain4j 的 Spring Boot 自动装配源码（例如 `AiServicesAutoConfig` 的 `addBeanReference` 机制），当使用 `@AiService` 注解时：
+> * 框架默认会采用自动寻找 (`AUTOMATIC`) 模式去装配需要的属性实例（如 ChatModel 等）。
+> * 如果上下文中存在**多个符合条件的同一类型实例**（Tools 除外），且你没有明确指定该用哪一个，框架会因为无法抉择而抛出冲突异常并导致应用启动崩溃。
+> * **解决方案**：在多实例并存的情况下，必须在服务接口上显式设置装配模式，主动接管控制权，例如：`@AiService(wiringMode = AiServiceWiringMode.EXPLICIT)`。
+
 代码示例：
 ```java
 import dev.langchain4j.service.SystemMessage;
@@ -195,3 +201,155 @@ public interface AIServiceWithFrameworkAnnotationEnglishHelperService {
 - **适用场景**：
   - 标准化、流程化的 Agent 业务（如客服问答、信息抽取、各类角色助手），尤其是已经有固定输入输出模式的场景。
   - 团队开发中，由架构师配置好底层模型，业务开发人员只需专注接口定义的高效协同模式。
+
+## 5. 会话记忆 (ChatMemory)
+### 概念定义
+大语言模型（LLM）底层接口本质上是无状态的（Stateless），单次调用时它并不知道你在此前发送过什么。**会话记忆（ChatMemory）** 是一种让系统拥有“短期对话记忆”的核心组件机制。它能够在用户每次发出新提问时，自动将历史交流记录（最近的对话上下文）一并打包发送给大模型，从而实现多轮连贯交互。
+
+### 白话文解释
+大模型原本就像一个只有“七秒记忆”的接待员，你刚寒暄完名字，下一句问他“你觉得我这个名字怎么样”，他就完全不记得你在说什么了。“会话记忆”就像是给这个接待员配了一个随身记录的“小本本”，每次你开口讲话，系统就会瞬间让他看一遍小本本上你们刚才沟通的文字。这样一来，他就能“回忆”起上文，跟你进行丝滑的连续聊天了。
+
+### 框架使用示例与不同支持类型
+在 LangChain4j 框架中，使用 `ChatMemory` 接口管理记忆。考虑到长篇大论会导致上下文超出模型的 Token 处理上限或大幅增加调用成本，系统不仅支持简单的消息记录，还内置了以下几种核心的丢弃（剔除）记忆策略：
+*   **按消息数量剔除 (MessageWindowChatMemory)**：简单的滑动窗口策略。只保留最近固定 N 条（N 个 Message）的对话历史摘要，一旦超过设定阈值，最老的对话即被自动遗忘丢弃（但扮演基础人设的 `SystemMessage` 一般会被永久保留）。
+*   **按 Token 数量剔除 (TokenWindowChatMemory)**：更安全精确的控制方式。由内置分词器动态计算历史记录的 Token 消耗，确保保留的所有历史加上新问题绝对不会突破大模型的 Token 限制。
+
+代码示例：
+```java
+@Configuration
+public class AIServiceEnglishHelperFactory {
+    // 注入底层的大语言模型组件
+    @Resource
+    private ChatModel chatModel;
+
+    // 为声明式 AI 服务绑定长下文记忆能力
+    @Bean
+    public AIServiceWithAnnotationResourceEnglishHelperService memoryChatAgentService() {
+        // 创建一个基于消息数量的滑动窗口记忆实例，设定最多记住最近的 10 条对话记录
+        ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(10);
+        
+        // 使用 AiServices 的高级构建器 (builder) 将其与大模型、会话记忆统一进行绑定
+        return AiServices.builder(AIServiceWithAnnotationResourceEnglishHelperService.class)
+                .chatModel(chatModel)
+                .chatMemory(chatMemory)
+                .build();
+    }
+}
+```
+
+## 6. 动态聊天请求与参数配置 (ChatRequest)
+### 概念定义
+ChatRequest 是一种用于封装单次大语言模型对话请求内容及其专属运行参数的数据结构。通常，我们在初始化一个大语言模型实例时会给定一套全局默认参数（如默认选用的模型版本、默认的随机性散度等）。但在实际业务中，我们经常需要在某一个具体的会话环节临时改变这些设定的参数，而不去影响全局配置。ChatRequest 就是为了满足这种需求而诞生的，它能够携带特定的请求参数覆盖默认配置。
+
+在 LangChain4j 框架中，ChatRequest 允许你传入对话消息集合（Messages）的同时，也可以通过传入 `ChatRequestParameters` 接口的实现类来指定针对这一次对话生效的相关参数，如 `modelName`（模型名称）、`temperature`（随机性/温度）、`maxTokens`（最大输出词元数）等。
+
+### 白话文解释
+如果你把大语言模型想象成一个厨师，一开始在长期的合同里你们约定好了他平时做菜放“一勺盐”（默认温度/参数）。但是某天你要招待一个口味比较清淡的客人，你只需要在这份“点菜单”（ChatRequest）上特别备注入一句“这道菜不要放盐”（单次临时调整的参数）。厨师接到这份点菜单，就会**唯独在这道菜上**按照这个临时要求做，而以后其他的菜还是按老规矩“一勺盐”来炒。
+
+### 框架使用示例
+在 LangChain4j 中，需要使用 `ChatRequest` 及其底层具体的模型参数实现类（如针对阿里云通义千问的 `QwenChatRequestParameters`，或者针对 OpenAI 的 `OpenAiChatRequestParameters`、Google Gemini 的 `GeminiChatRequestParameters` 等等）来构建包含专属参数的请求，最后调用大模型实例的 `doChat()` 方法。
+
+```java
+// 入参：message 是用户想要提出的问题
+public String chatWithChatRequest(String message) {
+    // 构造常规的用户消息
+    UserMessage userMessage = UserMessage.userMessage(message);
+    
+    // 构造特定模型的请求参数（注意：这一步取决于你底层究竟用的是哪家大模型）
+    // 例如这里以 Qwen (通义千问) 为例，动态将本次调用的模型版本指定为 qwen-max，并将温度调整为 0.6
+    QwenChatRequestParameters chatRequestParameters = QwenChatRequestParameters.builder()
+            .modelName("qwen-max")          // 覆盖单次会话所使用的的模型版本
+            .temperature(0.6)               // 覆盖单次会话的温度参数（控制发散度）
+            .build();
+            
+    // 将对话消息与专属参数一起打包，构建最终的 ChatRequest
+    ChatRequest chatRequest = ChatRequest.builder()
+            .parameters(chatRequestParameters)
+            .messages(userMessage)
+            .build();
+            
+    // 调用大模型进行处理，注意！传入 ChatRequest 时，通常使用 doChat() 方法而不是 chat()
+    ChatResponse chatResponse = chatModel.doChat(chatRequest);
+    
+    // 出参：解析并返回 AI 的回答文本
+    return chatResponse.aiMessage().text();
+}
+```
+
+## 7. 持久化会话记忆存储 (Persistent ChatMemoryStore)
+### 概念定义
+在大型语言模型对话的正常使用中，如果没有特意保存，模型在单次调用后是“无状态”的（Stateless），它并不知道大家在之前发过什么。虽然可以通过 `ChatMemory` 使应用维持短期记忆，但系统默认保存在内存（`InMemory`）中，一旦程序关闭或者服务重启，所有的历史交流上下文会立刻丢失。持久化会话记忆存储（Persistent ChatMemoryStore）则是一种将这段短期的“对话上下文”长期保存到外部数据介质（如数据库、Redis 文件等硬盘环境）的设计模式，为应用赋予即使系统重启仍能读取前文、以及分布式环境（多实例服务）下依然可以互通的跨服务器能力。在此基础上，必须指出在 langchain4j 框架中该特性的实现是将这个接口对象当做底层持久数据存储组件，与负责业务逻辑控制的 `ChatMemory` 相解耦分离。
+
+### 白话文解释
+这就像是给原本只拥有“短暂的七秒记忆”并且还会因为下班（服务器关机）立刻失忆的临时接待员，配置了一个带锁的“钢铁档案柜”（例如数据库或 Redis 缓存）。接待员每次陪你聊完天（一次请求结束），都会老老实实地把你们的对话记录写在小纸条上锁进档案柜里。等到明天他又开始上班，即使期间他回了老家（进程重启）甚至换了个长得一模一样的搭档代替他接替这个服务窗口，只要有档案柜存在，他都能翻开读出之前的聊天记录，接着上次没结束的话题顺畅地聊下去。
+
+### 框架使用示例
+在 LangChain4j 框架中，`ChatMemoryStore` 是一个专门用于定义“在哪里获取、往哪插入/修改、以及如何删除”聊天记录的存储介质接口，开发者可以轻松自定义它的实现接入任何基础架构。需要明确的是，该概念支持以下相关的具体落库类型拓展组合：
+*   **内存暂存 (InMemoryChatMemoryStore)**：即默认的存储在应用自身堆栈中，进程随之消亡。
+*   **关系型数据库 (DBChatMemory 等)**：通过编写 SQL 将记忆持久化到了如 MySQL、PostgreSQL 中。
+*   **分布式缓存 (RedisChatMemory 等)**：通过 NoSQL 放入内存数据库并能够支撑高并发跨机器的存储方案。
+*   **文档式数据库或搜索引擎**：比如 MongoDB 等非关系型库的实现方案。
+
+代码示例：
+```java
+// 入参：chatMemoryStore 是一个自定义的持久化存储实现 (比如本例中的 DBChatMemory 或 RedisChatMemory)
+@Bean("dbMemory")
+public ChatMemory dbMemory(DBChatMemory chatMemoryStore) {
+    // 构建一个基于消息滑动窗口控制的 ChatMemory
+    return MessageWindowChatMemory.builder()
+            // 在此显式配置持久化会话记忆组件，将它的底层存储由默认的内部 List 切换到外部介质（如数据库）
+            .chatMemoryStore(chatMemoryStore) 
+            // 同时仍保留截断老记忆（防止超出 maxToken）的策略机制
+            .maxMessages(10)
+            .build();
+    // 出参：返回一个带有持久化能力、具备完整长短时记忆体系交由核心系统注入给大模型代理后续使用的 ChatMemory 对象
+}
+
+// 补充基于 Redis 缓存的实现展示
+@Bean("redisMemory")
+public ChatMemory redisMemory(RedisChatMemory chatMemoryStore) {
+    // 逻辑一模一样：将自定义实现的 RedisChatMemory 注入到内存构造器内，完成独立持久化介质的赋能。
+    return MessageWindowChatMemory.builder()
+            .chatMemoryStore(chatMemoryStore)
+            .maxMessages(10)
+            .build();
+}
+```
+
+## 8. 多用户独立会话记忆区分 (@MemoryId与ChatMemoryProvider)
+### 概念定义
+当系统需要同时服务成千上万个用户会话时，我们必须为每个不同的聊天窗口或用户维护各自独立的“记忆库”。`@MemoryId` 是一种标识身份的特殊注解，用于从入参中提取当前会话的唯一ID；而 `ChatMemoryProvider` 则是负责接收这些 ID 并根据 ID 动态生成或提取对应的专属会话记忆的提供者机制。
+
+### 白话文解释
+如果系统共用一个“记忆本”（单个全局 `ChatMemory`），所有人的聊天记录就会串联，大模型就会“精神错乱”（比如张三问姓名，李四接着问刚才我也来过吗，AI就会混淆两人身份）。
+所以我们需要给每个客人都建一个专属档案袋。在声明式服务中，我们在沟通窗口前加上 `@MemoryId` 贴个身份条（“这是张三的记录”），而系统后方的 `chatMemoryProvider` 就负责像智能档案柜一样，看到“张三的条”就瞬间抽出张三的独立对话记录来给 AI 参考。
+
+### 框架使用示例与不同支持类型的配置坑点
+在 LangChain4j 的声明式服务（`@AiService`）中，想要使用多会话分离机制，需要特别注意代码中的配置：
+
+>**注意（配置坑点）：在声明多实例与会话模型时的强制约束**
+>根据当前核心服务类上的代码警示批注，在为 AI 声明式服务配置会话模型时有极易踩坑的严苛限制：
+>1. **前置模型依赖**：不论是使用全局单例的 `chatMemory` 还是动态获取的 `chatMemoryProvider` 属性，必须同时在 `@AiService` 里明确配置其绑定的 `chatModel`（例如 `chatModel = "qwenChatModel"`），否则会导致框架启动解析错乱或报错。
+>2. **不完整实例引发的空指针**：如果业务方法中使用了会话模式标识（在其参数上标记了 `@MemoryId` 区分独立对话），那就意味着处于多会话状态。此时接口上**必须**搭配 `chatMemoryProvider` 才能自动按需分配记忆！如果不慎只配置了普通的 `chatMemory`（单例池），会导致底层代理服务 `ChatMemoryService` 实例化不完整，真正发起问答时会直接抛出运行时的空指针异常 (NullPointerException)。
+
+多用户与单用户模式的代码配置对比示例：
+```java
+// 场景一：单系统用户或全局共享型记忆 (使用 chatMemory)
+// 必须配置 chatModel；因没有 @MemoryId，只需通过 chatMemory 属性绑定一个全局持久化的记忆库实例
+@AiService(wiringMode = AiServiceWiringMode.EXPLICIT,
+        chatModel = "qwenChatModel",
+        chatMemory = "dbMemory")
+public interface MemoryChatService {
+    String chat(@UserMessage String message);
+}
+
+// 场景二：多用户隔离型动态记忆（使用 chatMemoryProvider）
+// 方法参数中使用了 @MemoryId 来绑定用户身份，这里接口必须强制使用 chatMemoryProvider 属性！
+@AiService(wiringMode = AiServiceWiringMode.EXPLICIT,
+        chatModel = "qwenChatModel",
+        chatMemoryProvider = "dbChatMemoryProvider")
+public interface MultipleChatMemoryService {
+    // 调用时通过 memoryId 隔离出专属于这个会话的历史上下文，再合并进大模型的提问中
+    String chat(@MemoryId String memoryId, @UserMessage String message);
+}
+```

@@ -2,11 +2,29 @@ package cn.ai.agent.easyaiagent.agent.serivce;
 
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.spring.AiService;
+import dev.langchain4j.service.spring.AiServiceWiringMode;
 
 /**
  * 基于springboot框架创建实例
+ * <p>
+ * <b>注意</b>
+ * 如果AiService除了tool，其他某个属性有多个bean实例，不明确指定的情况下，需要把wiringMode设置为EXPLICIT
+ * 因为AiServicesAutoConfig中的addBeanReference方法多个实例在不是EXPLICIT的情况下会报错
+ * <p>
+ * if (aiServiceAnnotation.wiringMode() == EXPLICIT) {
+ * if (isNotNullOrBlank(customBeanName)) {
+ * propertyValues.add(factoryPropertyName, new RuntimeBeanReference(customBeanName));
+ * }
+ * } else if (aiServiceAnnotation.wiringMode() == AUTOMATIC) {
+ * if (beanNames.length == 1) {
+ * propertyValues.add(factoryPropertyName, new RuntimeBeanReference(beanNames[0]));
+ * } else if (beanNames.length > 1) {
+ * throw conflict(beanType, beanNames, annotationAttributeName);
+ * }
+ * }
+ *
  */
-@AiService
+@AiService(wiringMode = AiServiceWiringMode.EXPLICIT)
 public interface AIServiceWithFrameworkAnnotationEnglishHelperService {
 
     /**

@@ -1,9 +1,12 @@
 package cn.ai.agent.easyaiagent.agent;
 
+import dev.langchain4j.community.model.dashscope.QwenChatRequestParameters;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.request.ChatRequest;
+import dev.langchain4j.model.chat.request.ChatRequestParameters;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +25,7 @@ public class FirstSightChatAgent {
      * 知识点：基础用户消息 (Basic User Message)
      * 将普通字符串包装为 langchain4j 能识别的 UserMessage，这是最基础的文本对话形式。
      * </p>
-     * 
+     *
      * @param message 用户输入的文本消息
      * @return AI 回复的文本内容
      */
@@ -40,7 +43,7 @@ public class FirstSightChatAgent {
      * </p>
      * <p>
      * 参数构造示例：
-     * 
+     *
      * <pre>
      * // 1. 纯文本
      * UserMessage textMessage = UserMessage.from("你好");
@@ -95,5 +98,32 @@ public class FirstSightChatAgent {
         AiMessage aiMessage = chatResponse.aiMessage();
         log.info("aiMessage: {}", aiMessage);
         return aiMessage.text();
+    }
+
+    /**
+     * 发起带有动态调用参数的对话交互
+     * <p>
+     * 知识点：动态聊天请求与参数配置 (ChatRequest)
+     * 允许在单次对话请求级别，动态指定或覆盖底层模型大语言模型的参数设定（如指定特定的模型版本 modelName、调整生成的随机性 temperature
+     * 等），而无需修改全局的模型初始化配置。
+     * </p>
+     * 作用：
+     * 1. 为本次对话设置专属的生成参数。
+     * 2. 使用统一的 ChatRequest 对象对用户消息及这些专属配置进行组装。
+     *
+     * @param message 用户输入的文本消息
+     * @return AI 回复的文本内容
+     */
+    public String chatWithChatRequest(String message) {
+        UserMessage userMessage = UserMessage.userMessage(message);
+        // 调用模型就需要用相关模型的参数实现类，否则会报错
+        QwenChatRequestParameters chatRequestParameters = QwenChatRequestParameters.builder()
+                .modelName("qwen-max")
+                .temperature(0.6)
+                .build();
+        ChatRequest chatRequest = ChatRequest.builder().parameters(chatRequestParameters)
+                .messages(userMessage).build();
+        ChatResponse chatResponse = chatModel.doChat(chatRequest);
+        return aiMessageText(chatResponse);
     }
 }

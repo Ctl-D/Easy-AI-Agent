@@ -7,7 +7,7 @@ spring:
 
 langchain4j:
   community:
-    dashscope:
+    dashscope: #千问模型配置
       chat-model:
         api-key:
         model-name:
