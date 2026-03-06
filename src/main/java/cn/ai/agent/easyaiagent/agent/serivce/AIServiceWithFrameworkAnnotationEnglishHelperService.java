@@ -23,8 +23,9 @@ import dev.langchain4j.service.spring.AiServiceWiringMode;
  * }
  * }
  *
+ * 如果设置了EXPLICIT需要明确指定对应属性，框架不会自动去猜测或注入任何，而是严格按照你在注解中指明的 Bean 名称去查找 。因此，一旦你用了这个模式，就必须有一个同名的 Bean 存在
  */
-@AiService(wiringMode = AiServiceWiringMode.EXPLICIT)
+@AiService(wiringMode = AiServiceWiringMode.EXPLICIT,chatModel = "qwenChatModel")
 public interface AIServiceWithFrameworkAnnotationEnglishHelperService {
 
     /**

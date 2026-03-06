@@ -145,15 +145,18 @@ public class AIServiceFactory {
 >在实际项目中，系统可能不仅只有一个大模型或相关配置，而是同时注册了多个不同类型或参数的 Bean。根据 langchain4j 的 Spring Boot 自动装配源码（例如 `AiServicesAutoConfig` 的 `addBeanReference` 机制），当使用 `@AiService` 注解时：
 > * 框架默认会采用自动寻找 (`AUTOMATIC`) 模式去装配需要的属性实例（如 ChatModel 等）。
 > * 如果上下文中存在**多个符合条件的同一类型实例**（Tools 除外），且你没有明确指定该用哪一个，框架会因为无法抉择而抛出冲突异常并导致应用启动崩溃。
-> * **解决方案**：在多实例并存的情况下，必须在服务接口上显式设置装配模式，主动接管控制权，例如：`@AiService(wiringMode = AiServiceWiringMode.EXPLICIT)`。
+> * **解决方案**：在多实例并存的情况下，必须在服务接口上显式设置装配模式，主动接管控制权，例如：`@AiService(wiringMode = AiServiceWiringMode.EXPLICIT, chatModel = "qwenChatModel")`。
+> * **极其重要的一点**：一旦设置了 `EXPLICIT`，**你必须明确指定对应的属性（如绑定的模型 bean 名称）**。框架不会再自动去猜测或注入任何底层的能力组件，而是严格按照你在注解中指明的 Bean 名称去按名查找！如果缺少同名的 Bean，应用依然无法启动。
 
 代码示例：
 ```java
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.spring.AiService;
+import dev.langchain4j.service.spring.AiServiceWiringMode;
 
-// 加上 @AiService 注解后，Spring 启动时会自动实现该接口并交由 IOC 容器管理，无需自己编写工厂去创建
-@AiService
+// 加上 @AiService 注解后，Spring 启动时会自动实现该接口并交由 IOC 容器管理。
+// 这里显式指定了配对使用名为 "qwenChatModel" 的模型 Bean。
+@AiService(wiringMode = AiServiceWiringMode.EXPLICIT, chatModel = "qwenChatModel")
 public interface AIServiceWithFrameworkAnnotationEnglishHelperService {
     @SystemMessage(fromResource = "systemmessage/english_helper_system_message.txt")
     String chat(String message);
@@ -352,4 +355,68 @@ public interface MultipleChatMemoryService {
     // 调用时通过 memoryId 隔离出专属于这个会话的历史上下文，再合并进大模型的提问中
     String chat(@MemoryId String memoryId, @UserMessage String message);
 }
+```
+
+## 9. 结构化输出 (Structured Outputs / JSON Schema)
+### 概念定义
+结构化输出（Structured Outputs），在底层常表现为强制大模型遵循 JSON Schema 规范返回数据，是一种让大语言模型从生成不可控的自由文本（Free-form Text）转变为生成严格符合预定义数据结构（如特定的 JSON 对象或属性数组）的技术能力。它彻底解决了在工程应用中依赖正则表达式或容易出错的字符串截取来“猜”和“抠” AI 回复信息的痛点。
+
+### 白话文解释
+以前我们让 AI 帮忙从一段简历里找出候选人的姓名和年龄，AI 可能会回答：“经过我的仔细分析，这位候选人的名字叫张三，今年25岁了哦。” 这种回答对于人来说很好懂，但对于写代码的程序员来说简直是噩梦，因为程序没法直接把这段话存进数据库。
+“结构化输出”就像是咱们给 AI 发了一张严谨的“填空申请表”。我们不仅给它一段文字，还命令它：“别跟我废话讲长篇大论，必须严格按照 表格字段一：姓名，表格字段二：年龄 的格式给我填好交表！” 这样 AI 返回给我们的就直接是一个可以直接录入系统数据库的纯粹的数据包（JSON），程序拿到手就能用，一丁点废话都没有。
+
+### 框架使用示例
+在 LangChain4j 框架中，我们只要在声明式引擎 `@AiService` 下将方法的**返回值（Return Type）直接定义为你想要的 POJO、Record 或 Java 实体类**，框架就会神不知鬼不觉地在底层自动截获请求，把这个 Java 类的结构（属性类型和字段名）反向编译成 JSON Schema，塞进发给大模型的提示词里强制它遵循，并且在得到大模型回复后，自动将其反序列化成 Java 对象丢给你。一切都非常顺滑！
+
+除了单个实体类，LangChain4j 同样支持返回**基础类型**（如 `boolean`、`int`）、**枚举 (Enum)**，甚至是**复杂的集合包装类型**（如 `List<Person>`、`Map<String, Object>`）。
+
+代码示例：
+```java
+import dev.langchain4j.service.SystemMessage;
+import dev.langchain4j.service.spring.AiService;
+import dev.langchain4j.service.spring.AiServiceWiringMode;
+
+// 1. 定义期望输出的数据结构模型（推荐使用 Record 一层搞定字段声明）
+public record Person(Integer age, String name, String country, String birth) {}
+
+// 2. 声明式定义 AI 解析服务
+@AiService(wiringMode = AiServiceWiringMode.EXPLICIT, chatModel = "qwenChatModel")
+public interface JsonSchemaService {
+    
+    // 我们在这里加上人设规则，比如“从用户的描述中提取任务属性信息”
+    @SystemMessage(fromResource = "systemmessage/person_schema_message.text")
+    // 关键核心：将返回值直接指向我们的结构体 Person 而不是 String。
+    Person chat(String message);
+}
+```
+
+### 进阶特性：字段级指令增强 (@Description)
+#### 概念定义
+在某些复杂的业务场景下，我们要提取的实体对象字段名称（如英文简写的变量名 `phylum`, `genus`）对大模型来说可能有歧义，或者需要它按照极其特定的格式返回数据。`@Description` 注释允许我们在 Java 对象的类级别或字段级别附加额外的自然语言提示，这些额外说明会被 LangChain4j 直接解析并转换为底层的 JSON Schema 描述（description），从而精准引导大模型该怎么填这个“格子”。
+
+#### 白话文解释
+这就像是我们给“填空申请表”加上了“防呆小字说明”。光写一个表头“门类”可能有人会填“防盗门”，我们在旁边用小括号补充一行说明 `@Description("生物学分类，如脊索动物门")`，别人填表的时候就不会出这种乌龙了，大模型也是一样。
+
+#### 框架使用示例
+在 LangChain4j 中，无论是常规的 POJO 还是 Record，都可以直接在类名或属性字段上打上 `@Description` 注解（**注意：在导包时请务必认准引用的框架原生注解 `dev.langchain4j.model.output.structured.Description`，千万不要让 IDE 误导入 `jdk.jfr.Description`**）。
+
+代码示例：
+```java
+// 正确引入 LangChain4j 的 Description 注解
+import dev.langchain4j.model.output.structured.Description;
+
+// 在类级别整体说明这个对象的用途
+@Description("动物的专业分类信息")
+public record Animal(
+        @Description("动物通用名称，如：东北虎、非洲狮")
+        String name,
+        
+        @Description("门：生物分类的主要门类，如：脊索动物门")
+        String phylum,
+        
+        @Description("保护等级：极危CR、濒危EN、易危VU、无危LC等")
+        String conservationStatus
+) {}
+
+// 后续在 @AiService 中直接返回 Animal 即可，底层会自动将上述约束字典喂给 AI 服务。
 ```

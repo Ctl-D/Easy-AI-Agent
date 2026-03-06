@@ -55,8 +55,5 @@ currentFiles.forEach(file => {
 if (changedFiles.length === 0) {
     console.log("NO_CHANGES_DETECTED");
 } else {
-    console.log("CHANGES_DETECTED:");
-    changedFiles.forEach(change => {
-        console.log(`[${change.status}] ${change.file}`);
-    });
+    console.log("CHANGES_DETECTED:\n" + changedFiles.map(c => `[${c.status}] ${c.file}`).join('\n'));
 }

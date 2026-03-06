@@ -1,7 +1,12 @@
 [
     {
+        "_WARNING_": "================ 请勿手动修改此文件！它由系统脚本全自动生成与维护。手动修改将导致增量分析报错。 ================",
+        "File": "IGNORE",
+        "Hash": "IGNORE"
+    },
+    {
         "File": "src/main/java/cn/ai/agent/easyaiagent/agent/FirstSightChatAgent.java",
-        "Hash": "57e205ea9968fdfdaa22c51e83d1034d"
+        "Hash": "d1dd815172abe7e07588d090be05f5e6"
     },
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/agent/serivce/AIServiceWithAnnotationEnglishHelperService.java",
@@ -13,7 +18,11 @@
     },
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/agent/serivce/AIServiceWithFrameworkAnnotationEnglishHelperService.java",
-        "Hash": "387bd83a01140cb4667a52646987f334"
+        "Hash": "a63c5b289420a6041b7787d93bc70be3"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/agent/serivce/JsonSchemaService.java",
+        "Hash": "f6de4f295e325531fa6cacf98a9dc4a2"
     },
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/agent/serivce/MemoryChatService.java",
@@ -25,7 +34,15 @@
     },
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/config/MemoryConfig.java",
-        "Hash": "aa80e34f4f1f482168a0db54fd674a06"
+        "Hash": "54bcbed1221ec38c46156373cf28bcf6"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/dto/Animal.java",
+        "Hash": "fac2495eee5d14af753cde86ffc11dd5"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/dto/Person.java",
+        "Hash": "4fb296172d75a0545e02c67cf077f0e7"
     },
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/EasyAiAgentApplication.java",
@@ -33,7 +50,7 @@
     },
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/factory/AIServiceEnglishHelperFactory.java",
-        "Hash": "b030e5e14671131873fe6efe51aff2c8"
+        "Hash": "a645e5912dcb503081a7c92f40cebfed"
     },
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/memory/DBChatMemory.java",

@@ -2,12 +2,12 @@ package cn.ai.agent.easyaiagent.factory;
 
 import cn.ai.agent.easyaiagent.agent.serivce.AIServiceWithAnnotationEnglishHelperService;
 import cn.ai.agent.easyaiagent.agent.serivce.AIServiceWithAnnotationResourceEnglishHelperService;
-import cn.ai.agent.easyaiagent.agent.serivce.AIServiceWithFrameworkAnnotationEnglishHelperService;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.AiServices;
 import jakarta.annotation.Resource;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -20,14 +20,38 @@ public class AIServiceEnglishHelperFactory {
     @Resource
     private ChatModel chatModel;
 
-    @Bean
+    /**
+     * <b>注意</b>
+     * 存在多个 chatMemory，chatMemoryProvider实例，如果还有其他属性有多个属性都需要明确指定
+     * 该方式的注入没有明确指定不可用
+     *
+     * @return
+     */
+//    @Bean
     public AIServiceWithAnnotationEnglishHelperService aiServiceEnglishHelperService() {
         return AiServices.create(AIServiceWithAnnotationEnglishHelperService.class, chatModel);
     }
 
     @Bean
+    public AIServiceWithAnnotationEnglishHelperService aiServiceEnglishHelperService(@Qualifier("defaultMemory") ChatMemory chatMemory) {
+        return AiServices.builder(AIServiceWithAnnotationEnglishHelperService.class)
+                .chatModel(chatModel)
+                .chatMemory(chatMemory)
+                .build();
+    }
+
+    //    @Bean
     public AIServiceWithAnnotationResourceEnglishHelperService aiServiceWithAnnotationResourceEnglishHelperService() {
         return AiServices.create(AIServiceWithAnnotationResourceEnglishHelperService.class, chatModel);
+    }
+
+    @Bean
+    public AIServiceWithAnnotationResourceEnglishHelperService aiServiceWithAnnotationResourceEnglishHelperService(@Qualifier("defaultMemory") ChatMemory chatMemory) {
+        return AiServices.builder(AIServiceWithAnnotationResourceEnglishHelperService.class)
+                .chatModel(chatModel)
+                .chatMemory(chatMemory)
+                .build();
+
     }
 
     /**
@@ -38,7 +62,7 @@ public class AIServiceEnglishHelperFactory {
      *
      * @return 已经绑定了大模型和会话记忆能力的 Service 代理对象
      */
-    @Bean
+//    @Bean
     public AIServiceWithAnnotationResourceEnglishHelperService memoryChatAgentService() {
         ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(10);
         return AiServices.builder(AIServiceWithAnnotationResourceEnglishHelperService.class)

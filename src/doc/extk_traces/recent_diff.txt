@@ -1,0 +1,3 @@
+CHANGES_DETECTED:
+[MODIFIED] src/main/java/cn/ai/agent/easyaiagent/agent/serivce/JsonSchemaService.java
+[MODIFIED] src/main/java/cn/ai/agent/easyaiagent/dto/Person.java

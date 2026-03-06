@@ -25,12 +25,19 @@ console.log('开始扫描 Java 文件目录:', srcDir);
 
 const files = walk(srcDir);
 const result = files.map(file => {
-    // 读取文件内容并计算 MD5 哈希
+    // 读取文件内容并计算哈希
     const content = fs.readFileSync(file);
     const hash = crypto.createHash('md5').update(content).digest('hex');
-    // 转换为相对路径，统一使用正斜杠
+    // 转换为严格的 POSIX 相对路径，便于跨平台比对
     const relativePath = path.relative(baseDir, file).replace(/\\/g, '/');
     return { File: relativePath, Hash: hash };
+});
+
+// 插入防手动修改警告语
+result.unshift({
+    "_WARNING_": "================ 请勿手动修改此文件！它由系统脚本全自动生成与维护。手动修改将导致增量分析报错。 ================",
+    "File": "IGNORE",
+    "Hash": "IGNORE"
 });
 
 // 输出 JSON，保持格式美观

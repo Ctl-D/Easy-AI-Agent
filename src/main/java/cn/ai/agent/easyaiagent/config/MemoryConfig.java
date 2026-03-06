@@ -10,6 +10,11 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class MemoryConfig {
 
+    @Bean("defaultMemory")
+    public ChatMemory defaultMemory() {
+        return MessageWindowChatMemory.builder().maxMessages(10).build();
+    }
+
     /**
      * 构建基于数据库持久化的会话记忆实例。
      * 相关 AI 与框架概念：持久化会话记忆存储 (Persistent ChatMemoryStore)
