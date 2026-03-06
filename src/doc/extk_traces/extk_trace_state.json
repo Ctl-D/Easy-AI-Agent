@@ -1,0 +1,58 @@
+[
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/agent/FirstSightChatAgent.java",
+        "Hash": "57e205ea9968fdfdaa22c51e83d1034d"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/agent/serivce/AIServiceWithAnnotationEnglishHelperService.java",
+        "Hash": "b1d8f045ab7d7a9b478751f4eb65d736"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/agent/serivce/AIServiceWithAnnotationResourceEnglishHelperService.java",
+        "Hash": "93624f76987a2a123160089878093376"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/agent/serivce/AIServiceWithFrameworkAnnotationEnglishHelperService.java",
+        "Hash": "387bd83a01140cb4667a52646987f334"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/agent/serivce/MemoryChatService.java",
+        "Hash": "8ff3fd7ac5ebdc9f1b5a28ac40ba8d3b"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/agent/serivce/MultipleChatMemoryService.java",
+        "Hash": "a172e3787b52a30e68128d665ae022c3"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/config/MemoryConfig.java",
+        "Hash": "aa80e34f4f1f482168a0db54fd674a06"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/EasyAiAgentApplication.java",
+        "Hash": "00415e18fe3ae124b894b8e122985351"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/factory/AIServiceEnglishHelperFactory.java",
+        "Hash": "b030e5e14671131873fe6efe51aff2c8"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/memory/DBChatMemory.java",
+        "Hash": "03461b25abc318011610832994751854"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/memory/DBChatMemoryProvider.java",
+        "Hash": "e27d57a0f4b6e2a49202b95a18fb3be0"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/memory/RedisChatMemory.java",
+        "Hash": "62379a62aacdd70b70c1a13f24b952c7"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/memory/RedisChatMemoryProvider.java",
+        "Hash": "7f1bb812d061b2f4e34c85a91b1befce"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/systemmessage/EnglishHelperSystemMessage.java",
+        "Hash": "9f6103166eab7fd594584b098f00e604"
+    }
+]
