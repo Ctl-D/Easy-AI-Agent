@@ -5,6 +5,14 @@
         "Hash": "IGNORE"
     },
     {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/agent/AdvancedRAGAgent.java",
+        "Hash": "925679dc3a932c9cbd56f1ba6af16ec9"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/agent/EasyRAGAgent.java",
+        "Hash": "18da180746061a312ac5ddd71b4548ca"
+    },
+    {
         "File": "src/main/java/cn/ai/agent/easyaiagent/agent/FirstSightChatAgent.java",
         "Hash": "d1dd815172abe7e07588d090be05f5e6"
     },
@@ -37,8 +45,20 @@
         "Hash": "a172e3787b52a30e68128d665ae022c3"
     },
     {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/agent/serivce/RAGChatService.java",
+        "Hash": "b0915bc96cd70dc83175fb56370fd630"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/agent/StandardRAGAgent.java",
+        "Hash": "aed358030e20d0ced37e2ed7dda4ba46"
+    },
+    {
         "File": "src/main/java/cn/ai/agent/easyaiagent/config/MemoryConfig.java",
         "Hash": "54bcbed1221ec38c46156373cf28bcf6"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/config/RAGConfig.java",
+        "Hash": "3cbbd7eb945794b5dd78d4b04a84edaa"
     },
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/dto/Animal.java",

@@ -11,3 +11,6 @@ langchain4j:
       chat-model:
         api-key:
         model-name:
+      embedding-model: #文本统一向量模型
+        api-key:
+        model-name:

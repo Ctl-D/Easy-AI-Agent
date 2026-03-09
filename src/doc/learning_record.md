@@ -462,3 +462,232 @@ QwenChatRequestParameters chatRequestParameters = QwenChatRequestParameters.buil
         .responseFormat(responseFormat) // 🚨警告：Qwen 注入该强烈结构约束对象时会立马抛出异常宕机！
         .build();
 ```
+
+## 10. 检索增强生成 (RAG - Retrieval Augmented Generation)
+
+### 概念定义
+检索增强生成（RAG）是一种将外部知识库的精准**检索**（Retrieval）能力与大语言模型的**生成**（Generation）能力融合在一起的 AI 架构范式。其核心原理是：在大模型生成最终答案**之前**，先从一个独立的文档知识库中，向量相似度搜索出与当前问题最相关的若干文本片段（Chunk），再将这些片段作为上下文背景一并"喂"给大模型，从而让模型基于真实、可溯源的资料来生成回答，而不是单纯凭自身参数里"记住的"内容（即幻觉的来源）。
+
+在 LangChain4j 框架中，RAG 的实现分为两个阶段：
+1. **文档摄入阶段 (Ingestion)**：将外部文档加载 → 切分 → 向量化 → 存入向量数据库。
+2. **检索增强对话阶段 (Retrieval-Augmented Chat)**：用户提问时，系统先将问题向量化并从数据库中召回相关片段，再拼入原始 Prompt 发给大模型统一处理。
+
+### 白话文解释
+你可以把普通的大语言模型想象成一个只靠"脑子里知识"答题的选手。它参加高考的时候，卷子上出现了一道关于你们公司最新产品的题，它根本就没见过这份资料，只能靠胡编蒙对（这叫"幻觉"）。
+
+RAG 就像是给这位选手额外开了个"夹带小抄"的特权通道。考试开始之前，我们把你们公司所有的产品说明书全放进一个精妙设计的档案室（向量数据库）。出题的时候，系统先冲进档案室翻查，把最相关的"小抄"取出来，再塞给选手一起答题。于是，他既发挥了顶尖理解力（LLM 的推理能力），又有了真实资料做依据，答案就又准又有据可查了。
+
+### 框架使用示例
+在 LangChain4j 中，RAG 的核心链路由以下几个关键组件协同工作：
+
+| 组件 | 作用 | 常用实现类 |
+|---|---|---|
+| `DocumentLoader` | 从文件系统、URL等来源加载原始文档 | `FileSystemDocumentLoader` |
+| `DocumentParser` | 解析并提取文档的文本内容 | `TextDocumentParser`、`ApacheTikaDocumentParser`（支持 PDF/Word 等）|
+| `DocumentSplitter` | 将长文档切分成小文本块（Chunk），`EmbeddingStoreIngestor` 内置了默认切分策略 | `DocumentSplitters.recursive()` |
+| `EmbeddingModel` | 将文本块转换（向量化）为高维数值向量 | 各厂商实现（如 `QwenEmbeddingModel`） |
+| `EmbeddingStore` | 向量数据库，用于存储和相似度检索向量碎片 | `InMemoryEmbeddingStore`（内存）、`PineconeEmbeddingStore`（云端）、`MilvusEmbeddingStore`（本地）等 |
+| `EmbeddingStoreIngestor` | 摄入流水线，自动完成 切分→向量化→入库 的全链路整合 | `EmbeddingStoreIngestor.ingest()` |
+| `ContentRetriever` | 检索器，在对话时从向量库中召回相关片段 | `EmbeddingStoreContentRetriever` |
+
+**文档摄入阶段**（以加载本地 txt 文件为例）：
+
+```java
+// ① 加载文档（FileSystemDocumentLoader 支持多种加载模式）
+// 加载单个文档，TextDocumentParser 是默认解析器，可省略
+Document document = FileSystemDocumentLoader.loadDocument(
+        "src/main/resources/rag_doc/person_habit.txt",
+        new TextDocumentParser()
+);
+
+// 加载目录下所有文档
+// List documents = FileSystemDocumentLoader.loadDocuments("src/main/resources/rag_doc", new TextDocumentParser());
+
+// 递归加载目录及所有子目录中的文档
+// List documents = FileSystemDocumentLoader.loadDocumentsRecursively("src/main/resources/rag_doc", new TextDocumentParser());
+
+// 通过 glob 通配符过滤文件类型（如只加载 PDF）
+// PathMatcher pathMatcher = FileSystems.getDefault().getPathMatcher("glob:*.pdf");
+// List documents = FileSystemDocumentLoader.loadDocuments("src/main/resources/rag_doc", pathMatcher, new TextDocumentParser());
+
+// ② 创建内存向量数据库（生产环境可替换为 Milvus、Pinecone、PgVector 等持久化方案）
+InMemoryEmbeddingStore<TextSegment> embeddingStore = new InMemoryEmbeddingStore<>();
+
+// ③ 一行代码完成文档的 切分→向量化→入库 全流程（需在 Spring 环境中配置 EmbeddingModel Bean）
+EmbeddingStoreIngestor.ingest(document, embeddingStore);
+```
+
+**检索增强对话阶段**（结合 `AiServices` 将检索器注入对话代理）：
+
+```java
+// ④ 构建 RAG 对话代理：声明式服务接口作为对答窗口，注入检索器让框架自动完成"先检索、后生成"
+// 出参：agent 是一个由 AiServices 动态代理生成的实例，每次调用 chat() 时框架将自动执行上下文增强
+RAGChatService agent = AiServices.builder(RAGChatService.class)
+        .chatModel(chatModel)                   // 绑定大语言模型
+        .chatMemory(chatMemory)                 // 绑定会话记忆（可选）
+        .contentRetriever(EmbeddingStoreContentRetriever.from(embeddingStore)) // 关键：注入检索器
+        .build();
+
+// 入参：用户的自然语言提问
+// 出参：大模型结合检索到的文档内容生成的回答
+String answer = agent.chat(message);
+```
+
+声明式服务接口本身极简，只需定义方法签名即可，检索增强的逻辑完全由框架透明处理：
+
+```java
+// RAGChatService.java
+public interface RAGChatService {
+    // 入参：用户问题；出参：结合知识库文档的 AI 生成回答
+    String chat(String message);
+}
+```
+
+### 进阶特性：摄入结果回执 (IngestionResult)
+
+#### 概念定义
+`IngestionResult` 是 `EmbeddingStoreIngestor.ingest()` 方法的返回值类型，用于封装本次文档摄入管道执行完毕后的统计回执信息。它让开发者可以在摄入结束后拿到可观测的摄入结果数据，目前主要包含 `tokenUsage()`（本次向量化过程消耗的 Token 统计）等信息，可用于记录日志、监控费用开销等场景。
+
+> **注意**：`IngestionResult` 是一个轻量级的数据载体对象，本身不影响摄入行为本身。如果不需要关注摄入统计数据，完全可以忽略其返回值（如之前的写法 `EmbeddingStoreIngestor.ingest(document, embeddingStore);`），两者效果等价。
+
+#### 白话文解释
+以前你让快递员帮你把一批货物（文档）搬进仓库（向量数据库），他搬完就走了，你不知道到底搬进去了几件、花了多少力气。`IngestionResult` 就像是快递员在完工后递给你的一张**入库清单回执**，上面写着"本次共处理了 X 件，消耗运力（Token）Y 单元"。你可以拿这张单子做核对和统计，也可以直接扔掉不看。
+
+#### 框架使用示例
+
+```java
+// ingest() 返回 IngestionResult，可接收也可直接忽略
+// 入参：document 是要摄入的文档对象，embeddingStore 是目标向量数据库实例
+IngestionResult ingestResult = EmbeddingStoreIngestor.ingest(document, embeddingStore);
+
+// 从回执中读取本次向量化消耗的 Token 信息（用于日志监控或费用统计）
+// TokenUsage 包含：inputTokenCount（输入 Token 数）、outputTokenCount（输出 Token 数）、totalTokenCount（总计）
+TokenUsage tokenUsage = ingestResult.tokenUsage();
+
+log.info("文档摄入完成，本次嵌入模型消耗 Token: inputTokens={}, totalTokens={}",
+        tokenUsage.inputTokenCount(), tokenUsage.totalTokenCount());
+
+// 如果不需要关注统计信息，也可直接忽略返回值，效果完全一致
+// EmbeddingStoreIngestor.ingest(document, embeddingStore);
+```
+
+## 11. RAG 生产级精细化配置 (DocumentSplitter / EmbeddingStoreIngestor Builder)
+
+### 概念定义
+在基础 RAG 中，我们使用 `EmbeddingStoreIngestor.ingest()` 静态方法一键完成文档摄入，框架使用内置的默认参数。而在生产级的 RAG 系统中，文档的质量和检索的精准度往往需要通过精细化配置来保障，主要涉及以下三个方向：
+
+1. **文档分割策略（DocumentSplitter）**：将长文档切分成大小合适的文本块（Chunk），块的大小和重叠量直接影响向量的语义完整性和检索质量。
+2. **文本段转换（TextSegmentTransformer）**：在文本块写入向量库之前，对其内容做二次加工（如附加来源文件名前缀），让向量存储更多有助于检索的上下文信息。
+3. **检索过滤参数（maxResults / minScore）**：控制每次召回的文档片段数量上限，以及过滤掉相似度低于阈值的噪声结果，提升最终答案的质量。
+
+在 LangChain4j 框架中，上述配置均通过 `EmbeddingStoreIngestor.builder()` 和 `EmbeddingStoreContentRetriever.builder()` 来实现。通常以 Spring `@Bean` 方式全局初始化一次，避免在每次对话时重复构建，是生产环境的标准实践。
+
+### 白话文解释
+基础 RAG 就像是一个快递员，把一整箱货物（文档）直接扔进仓库（向量库），什么都不管。
+
+而生产级 RAG 就像是专业的仓库管理员：他先把大箱子里的货物**按规格拆开、分门别类打包**（DocumentSplitter 分割），再在每个小包裹上**贴好来自哪个箱子的标签**（TextSegmentTransformer 附加元数据），放好之后等取货的时候，他不仅找出相关的包裹，还会**只拿最多几件、并且丢掉那些明显跑题的**（maxResults / minScore 过滤），保证递出去的货物精准又高效。
+
+### 框架使用示例
+在 LangChain4j 中，常见的 `DocumentSplitter` 实现类型包括：
+
+| 分割器类型 | 说明 |
+|---|---|
+| `DocumentByLineSplitter` | 按行分割，每块包含指定行数 |
+| `DocumentBySentenceSplitter` | 按句子边界分割（适合自然语言段落）|
+| `DocumentByParagraphSplitter` | 按段落分割 |
+| `DocumentByWordSplitter` | 按词数分割 |
+| `DocumentSplitters.recursive()` | 递归层级分割（最常用，先尝试段落再尝试句子）|
+
+```java
+@Configuration
+public class RAGConfig {
+
+    @Resource
+    private EmbeddingModel embeddingModel;     // 向量化模型（如 text-embedding-v4），由 Spring 统一管理
+
+    @Resource
+    private EmbeddingStore<TextSegment> embeddingStore;  // 向量数据库（如 Milvus、Pinecone 等）
+
+    @Bean
+    public ContentRetriever contentRetriever() {
+        // 加载文档目录（此处加载整个目录下的所有文件）
+        List<Document> documents = FileSystemDocumentLoader.loadDocuments("src/main/resources/rag_doc");
+
+        // ① 定义文档分割策略：按行分割，每块最多200个token，相邻块重叠10个token
+        //    重叠（overlap）可以防止语义在块边界处被硬截断，避免上下文断裂
+        DocumentByLineSplitter splitter = new DocumentByLineSplitter(200, 10);
+        // 若需更智能的分割，可改用：DocumentSplitters.recursive(300, 30, new OpenAiTokenizer())
+
+        // ② 使用 builder 模式构建精细化摄入流水线（替代简单的静态 ingest() 方法）
+        EmbeddingStoreIngestor ingestor = EmbeddingStoreIngestor.builder()
+                // textSegmentTransformer: 在文本块落库前做二次加工
+                // 此处将来源文件名拼接到每段文本头部，提升向量的语义可溯源性
+                .textSegmentTransformer(textSegment -> TextSegment.from(
+                        textSegment.metadata().getString("file_name") + "\n" + textSegment.text(),
+                        textSegment.metadata()
+                ))
+                .embeddingModel(embeddingModel)    // 指定向量化模型
+                .embeddingStore(embeddingStore)    // 指定向量数据库
+                .documentSplitter(splitter)        // 指定分割策略
+                .build();
+
+        // 执行摄入（一次性：应用启动时完成，后续对话无需重复执行）
+        ingestor.ingest(documents);
+
+        // ③ 构建带精细过滤参数的检索器
+        return EmbeddingStoreContentRetriever.builder()
+                .embeddingModel(embeddingModel)
+                .embeddingStore(embeddingStore)
+                .maxResults(3)       // 每次检索最多返回3个最相关的文档片段
+                .minScore(0.75)      // 过滤向量相似度低于75%的噪声结果
+                .build();
+        // 出参：ContentRetriever Bean，注入到 AiServices 后在每次对话前自动执行召回
+    }
+}
+```
+
+## 12. AI 服务结果包装类 (Result\<T\>)
+
+### 概念定义
+在 LangChain4j 的声明式 AI 服务（AiServices）中，方法的返回类型除了可以直接声明为 `String`、`Integer`、自定义实体类等，还可以声明为 `Result<T>`。`Result<T>` 是一个泛型包装类，它在返回最终 AI 生成内容（`T`）的同时，额外携带了本次大模型调用的完整元数据信息，包括：
+- **`content()`**：实际的 AI 生成内容（等价于原来直接返回的 `T`）。
+- **`sources()`**：RAG 场景下，本次召回并实际使用的文档来源列表（`List<Content>`）。
+- **`tokenUsage()`**：本次调用消耗的输入/输出 Token 统计（`TokenUsage`）。
+- **`finishReason()`**：大模型停止生成的原因（如 `STOP`、`LENGTH` 等）。
+
+### 白话文解释
+普通的 `String` 返回就像是你叫外卖，骑手把餐送到门口，转身就走了。你只拿到了食物（答案），不知道骑手从哪家餐厅取的（来源文档）、跑了多少公里（Token 消耗）。
+
+`Result<T>` 就像是附了一张完整**配送单**的外卖：你不仅拿到食物，配送单上还清楚地写着取餐餐厅（召回文档来源）、配送里程（Token 消耗）、以及骑手为什么停下来（完结原因）。有了这张单，你既能用答案，还能审计每一次调用的行为细节。
+
+### 框架使用示例
+在 LangChain4j 中，只需将声明式服务接口的方法返回类型改为 `Result<T>` 即可，不需要修改任何其他配置：
+
+```java
+// 声明式服务接口：同一方法，两种返回类型任选
+public interface RAGChatService {
+    // 普通模式：直接返回文本，简洁高效
+    String chat(String message);
+
+    // 增强模式：返回 Result<String>，携带完整元数据
+    Result<String> chatWithResult(String message);
+}
+
+// 调用侧使用示例：
+Result<String> result = ragChatService.chatWithResult("什么是 RAG？");
+
+// 获取 AI 回答正文（等价于普通 String 返回）
+String answer = result.content();
+
+// 获取 RAG 召回的文档来源列表（可用于展示引用出处或审计）
+List<Content> sources = result.sources();
+
+// 获取本次调用的 Token 消耗统计
+TokenUsage tokenUsage = result.tokenUsage();
+// tokenUsage.inputTokenCount()  → 输入 token 数
+// tokenUsage.outputTokenCount() → 输出 token 数
+// tokenUsage.totalTokenCount()  → 合计
+
+// 获取大模型停止生成的原因（如正常结束 STOP、达到长度上限 LENGTH 等）
+FinishReason reason = result.finishReason();
+```

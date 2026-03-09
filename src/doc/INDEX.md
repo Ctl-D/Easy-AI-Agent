@@ -1,4 +1,4 @@
-# learning_record.md 知识点索引
+﻿# learning_record.md 知识点索引
 
 > ⚠️ 此文件由 `finish_extk.js` 脚本自动维护，请勿手动修改章节行。
 
@@ -14,3 +14,6 @@
 | 8 | 多用户独立会话记忆区分 (@MemoryId与ChatMemoryProvider) | `@MemoryId`, `ChatMemoryProvider`, `chatMemoryProvider`, `MultipleChatMemoryService` |
 | 9 | 结构化输出 (Structured Outputs / JSON Schema) | `@Description`, `JsonObjectSchema`, `ResponseFormat`, `ResponseFormatType`, `JsonSchema` |
 | 10 | 检索增强生成 (RAG) | `FileSystemDocumentLoader`, `EmbeddingStoreIngestor`, `InMemoryEmbeddingStore`, `EmbeddingStoreContentRetriever`, `ContentRetriever`, `IngestionResult`, `TokenUsage` |
+| 11 | RAG 生产级精细化配置 | `DocumentSplitter`, `DocumentByLineSplitter`, `DocumentSplitters`, `TextSegmentTransformer`, `EmbeddingStoreIngestor.builder`, `maxResults`, `minScore` |
+| 12 | AI 服务结果包装类 (Result) | `Result`, `content()`, `sources()`, `tokenUsage()`, `finishReason()`, `FinishReason` |
+
