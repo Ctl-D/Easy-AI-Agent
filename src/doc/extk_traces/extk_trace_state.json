@@ -9,6 +9,10 @@
         "Hash": "d1dd815172abe7e07588d090be05f5e6"
     },
     {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/agent/JsonSchemaAgent.java",
+        "Hash": "4e8ef9a1d316cdf1a2c469f3e1097c7c"
+    },
+    {
         "File": "src/main/java/cn/ai/agent/easyaiagent/agent/serivce/AIServiceWithAnnotationEnglishHelperService.java",
         "Hash": "b1d8f045ab7d7a9b478751f4eb65d736"
     },
@@ -71,5 +75,9 @@
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/systemmessage/EnglishHelperSystemMessage.java",
         "Hash": "9f6103166eab7fd594584b098f00e604"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/systemmessage/PersonSchemaMessage.java",
+        "Hash": "f73489d6f37d60e5ea8d2ad045d750f2"
     }
 ]

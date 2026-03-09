@@ -420,3 +420,45 @@ public record Animal(
 
 // 后续在 @AiService 中直接返回 Animal 即可，底层会自动将上述约束字典喂给 AI 服务。
 ```
+
+### 底层深入：编程式严格约束 (Programmatic JSON Schema)
+#### 概念定义
+除了通过定义 Record 等实体类的“声明式”结构化输出外，LangChain4j 还提供了底层的 `JsonObjectSchema.builder()` 编程式 API。这种方式允许开发者以硬编码的方式、极其精细地控制 JSON 的每一层结构和每一个属性，比如明确指定哪些字段是必填项（`required()`）。
+
+#### 白话文解释
+如果说声明式是在给 AI 发一张大概画着格子的“填空申请表”（AI 大致按格子填），那么编程式约束就是你亲自拿着尺子和圆规，在白纸上精准划出每一个格子的长宽、并标注“这点不填不许交卷”（必填项校验）。它牺牲了写代码的便捷度，但换来了当下最高精度、最绝对格式的严苛控制权。
+
+#### 框架使用示例与避坑警告
+这种方式需要手动组装所有的底层参数（`ChatRequest`、`ResponseFormat` 等），并且**强烈依赖底层大模型的具体功能适配支持**。
+
+>**注意（模型适配性致命坑点）：**
+>虽然编程式的 `ResponseFormatType.JSON` 提供了极高的精度，但目前并非所有的底层大模型都支持这种强制性的协议格式！
+>例如：目前类似 **Qwen (通义千问)** 部分模型接口底层并未完全兼容这一由 OpenAI 带起的特定 JSON_SCHEMA 传输机制。如果在 Qwen 模型中强行将构建好的 `JsonSchema` 注入请求，框架底层校验会在启动阶段直接拦截并抛出极其罕见的致命异常：`UnsupportedFeatureException("JSON response format is not supported")`。
+>**解决方案**：在使用不支持该强制校验特性的国产大模型时，必须退回到第一种更为柔性的**“声明式输出 (@AiService 返回 Record)”**配合系统提示词来进行软约束，切勿直接操作原生的硬 `ResponseFormat` 对象。
+
+代码示例：
+```java
+// 手动搭建极其严苛的 JSON 结构图纸
+JsonObjectSchema schema = JsonObjectSchema.builder()
+        .addStringProperty("name")
+        .addIntegerProperty("age")
+        .addStringProperty("country")
+        .required("name", "country") // 只有这种编程式方法才能精准指定必填校验列！
+        .build();
+
+JsonSchema jsonSchema = JsonSchema.builder()
+        .name("person")
+        .rootElement(schema)
+        .build();
+
+// 将图纸封装成大模型认得的响应格式对象（前提是底层模型本身支持接收这种格式！）
+ResponseFormat responseFormat = ResponseFormat.builder()
+        .type(ResponseFormatType.JSON)
+        .jsonSchema(jsonSchema)
+        .build();
+
+QwenChatRequestParameters chatRequestParameters = QwenChatRequestParameters.builder()
+        .modelName("qwen-max")
+        .responseFormat(responseFormat) // 🚨警告：Qwen 注入该强烈结构约束对象时会立马抛出异常宕机！
+        .build();
+```
