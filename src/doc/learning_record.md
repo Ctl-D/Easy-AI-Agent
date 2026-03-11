@@ -691,3 +691,121 @@ TokenUsage tokenUsage = result.tokenUsage();
 // 获取大模型停止生成的原因（如正常结束 STOP、达到长度上限 LENGTH 等）
 FinishReason reason = result.finishReason();
 ```
+
+## 13. RAG 多知识库隔离配置 (@Bean 命名 / CommandLineRunner 初始化)
+
+### 概念定义
+在生产级 RAG 系统中，往往需要为不同业务主题（如"基本信息"、"工作经历"、"人际关系"）维护各自独立的向量知识库，并在应用启动时完成一次性的文档摄入。这涉及两个核心设计：
+
+1. **@Bean 命名与多实例隔离**：在 Spring 中，通过给 `@Bean` 注解指定名称（如 `@Bean("jobsIngestor")`），可以注册多个相同类型的 Bean 而不产生冲突。调用方使用 `@Resource(name = "...")` 精确注入所需的命名实例。当需要指定某个 Bean 作为该类型的默认首选项时，可配合 `@Primary` 注解使用。
+
+2. **CommandLineRunner（启动钩子）**：Spring Boot 提供的接口，实现类在应用上下文完全就绪后自动执行 `run()` 方法，是 RAG 系统进行"应用启动时一次性文档摄入"的标准实现位置——只需执行一次，无需在每次对话时重复加载。
+
+在 LangChain4j 框架中，通常将 `Document`、`EmbeddingStoreIngestor`、`ContentRetriever` 均注册为 Spring Bean 并按名称区分，再在 `CommandLineRunner` 中统一完成初始化摄入，形成完整的多知识库隔离架构。
+
+### 白话文解释
+想象一座大型图书馆，有"历史馆"、"科技馆"、"文学馆"三个分馆（多个主题知识库）。如果把所有书都塞进同一个书架（单一向量库），查找时就乱作一团。
+
+正确的做法是：给每个分馆配一套独立的书架系统（命名 `EmbeddingStoreIngestor` Bean），图书馆开门前（`CommandLineRunner` 启动）由专门的管理员把各分馆的书分别上架（分批摄入），之后读者进来查书（RAG 对话）时，系统已经知道去哪个分馆的哪个书架查了。
+
+`@Bean("...")` 就是给每套书架系统贴上标签；`@Resource(name = "...")` 就是告诉工作人员"去拿那个贴着 × 标签的书架"；`@Primary` 就是贴了"默认书架"标签，没特别指定时就用它。
+
+### 框架使用示例
+在 LangChain4j 的 Spring Boot 集成中，多知识库隔离的标准架构如下：
+
+**第一步：注册命名 Document Bean 和命名 Ingestor Bean**
+
+```java
+@Configuration
+public class RAGConfig {
+
+    @Resource
+    private EmbeddingModel embeddingModel;
+
+    // ① 将文档注册为命名 Bean，方便跨组件共享注入
+    @Bean("basicInfoDocument")
+    public Document basicInfoDocument() {
+        return FileSystemDocumentLoader.loadDocument("src/main/resources/rag_doc/basic_info.txt");
+    }
+
+    @Bean("jobsDocument")
+    public Document jobsDocument() {
+        return FileSystemDocumentLoader.loadDocument("src/main/resources/rag_doc/jobs.txt");
+    }
+
+    // ② 为每个主题注册独立的命名 Ingestor Bean，可各自配置不同的 EmbeddingStore、Splitter 等
+    //    @Primary 标注此 Bean 为 EmbeddingStoreIngestor 类型的默认注入首选项
+    @Bean("basicInfoIngestor")
+    @Primary
+    public EmbeddingStoreIngestor basicInfoIngestor(EmbeddingStore<TextSegment> basicInfoStore) {
+        return EmbeddingStoreIngestor.builder()
+                .embeddingModel(embeddingModel)
+                .embeddingStore(basicInfoStore)
+                .documentSplitter(DocumentSplitters.recursive(300, 30))
+                .build();
+    }
+
+    @Bean("jobsIngestor")
+    public EmbeddingStoreIngestor jobsIngestor(EmbeddingStore<TextSegment> jobsStore) {
+        return EmbeddingStoreIngestor.builder()
+                .embeddingModel(embeddingModel)
+                .embeddingStore(jobsStore)
+                .documentSplitter(DocumentSplitters.recursive(200, 10))
+                .build();
+    }
+
+    // ③ 注册命名 ContentRetriever，用于和对应知识库的 AiServices 绑定
+    @Bean("standardRagContentRetriever")
+    public ContentRetriever standardRagContentRetriever(EmbeddingStore<TextSegment> basicInfoStore) {
+        return EmbeddingStoreContentRetriever.builder()
+                .embeddingModel(embeddingModel)
+                .embeddingStore(basicInfoStore)
+                .maxResults(3)
+                .minScore(0.75)
+                .build();
+    }
+}
+```
+
+**第二步：用 CommandLineRunner 在启动时完成一次性批量摄入**
+
+```java
+@Slf4j
+@Component
+public class KnowledgeBaseInitializer implements CommandLineRunner {
+
+    // 通过 @Resource(name = "...") 精确注入对应的命名 Bean
+    @Resource(name = "basicInfoDocument")
+    private Document basicInfoDocument;
+
+    @Resource(name = "jobsDocument")
+    private Document jobsDocument;
+
+    @Resource(name = "basicInfoIngestor")
+    private EmbeddingStoreIngestor basicInfoIngestor;
+
+    @Resource(name = "jobsIngestor")
+    private EmbeddingStoreIngestor jobsIngestor;
+
+    /**
+     * Spring Boot 应用上下文就绪后自动调用，完成各主题知识库的文档摄入。
+     * 此处只执行一次，后续对话中 RAG 检索器可直接使用已摄入的向量数据。
+     * 入参：args 为 Spring Boot 命令行参数，通常忽略不用。
+     */
+    @Override
+    public void run(String... args) throws Exception {
+        log.info("开始初始化知识库...");
+        basicInfoIngestor.ingest(basicInfoDocument);  // 摄入基本信息文档
+        jobsIngestor.ingest(jobsDocument);            // 摄入工作经历文档
+        log.info("知识库初始化完成！");
+    }
+}
+```
+
+**第三步：在 AiServices 中通过 @Resource(name=...) 绑定对应的 ContentRetriever**
+
+```java
+// StandardRAGAgent 中注入指定名称的 ContentRetriever，确保走正确的知识库
+@Resource(name = "standardRagContentRetriever")
+private ContentRetriever contentRetriever;
+```

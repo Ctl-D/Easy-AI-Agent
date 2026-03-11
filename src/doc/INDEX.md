@@ -16,4 +16,4 @@
 | 10 | 检索增强生成 (RAG) | `FileSystemDocumentLoader`, `EmbeddingStoreIngestor`, `InMemoryEmbeddingStore`, `EmbeddingStoreContentRetriever`, `ContentRetriever`, `IngestionResult`, `TokenUsage` |
 | 11 | RAG 生产级精细化配置 | `DocumentSplitter`, `DocumentByLineSplitter`, `DocumentSplitters`, `TextSegmentTransformer`, `EmbeddingStoreIngestor.builder`, `maxResults`, `minScore` |
 | 12 | AI 服务结果包装类 (Result) | `Result`, `content()`, `sources()`, `tokenUsage()`, `finishReason()`, `FinishReason` |
-
+| 13 | RAG 多知识库隔离配置 (@Bean 命名 / CommandLineRunner) | `@Bean`, `@Primary`, `CommandLineRunner`, `@Resource(name)`, `Document Bean`, `KnowledgeBaseInitializer` |

@@ -6,7 +6,7 @@
     },
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/agent/AdvancedRAGAgent.java",
-        "Hash": "925679dc3a932c9cbd56f1ba6af16ec9"
+        "Hash": "b6cd0d932f6b608218b5c888fab21c0f"
     },
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/agent/EasyRAGAgent.java",
@@ -19,6 +19,14 @@
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/agent/JsonSchemaAgent.java",
         "Hash": "4e8ef9a1d316cdf1a2c469f3e1097c7c"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/agent/serivce/AdvancedRAGChatService.java",
+        "Hash": "7d457d4cf09498b2023db473df75f2aa"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/agent/serivce/AdvancedRAGRouterService.java",
+        "Hash": "dd629ad40b886c28321c930348e21dbc"
     },
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/agent/serivce/AIServiceWithAnnotationEnglishHelperService.java",
@@ -50,23 +58,43 @@
     },
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/agent/StandardRAGAgent.java",
-        "Hash": "aed358030e20d0ced37e2ed7dda4ba46"
+        "Hash": "123a6abecb9a691fdcf3d2bb052a3746"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/config/EmbeddingStoreConfig.java",
+        "Hash": "15edb79b344d691e8af4f036974f7987"
     },
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/config/MemoryConfig.java",
         "Hash": "54bcbed1221ec38c46156373cf28bcf6"
     },
     {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/config/PeopleKnowledgeBaseConfig.java",
+        "Hash": "6b764d289354a6e568ddf1f4739ce338"
+    },
+    {
         "File": "src/main/java/cn/ai/agent/easyaiagent/config/RAGConfig.java",
-        "Hash": "3cbbd7eb945794b5dd78d4b04a84edaa"
+        "Hash": "bb872c5ecead04551d84a643f247fe66"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/config/RetrieverConfig.java",
+        "Hash": "8bb9e5698e608b33c048c746c7c5a80d"
     },
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/dto/Animal.java",
         "Hash": "fac2495eee5d14af753cde86ffc11dd5"
     },
     {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/dto/NamedRetriever.java",
+        "Hash": "44ae235552940b5e03fa70f939f5e121"
+    },
+    {
         "File": "src/main/java/cn/ai/agent/easyaiagent/dto/Person.java",
         "Hash": "4fb296172d75a0545e02c67cf077f0e7"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/dto/RoutingDecision.java",
+        "Hash": "0752710abcc5e5b0dad8105c03474176"
     },
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/EasyAiAgentApplication.java",
@@ -91,6 +119,34 @@
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/memory/RedisChatMemoryProvider.java",
         "Hash": "7f1bb812d061b2f4e34c85a91b1befce"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/rag/retriever/AdvancedBasePeopleContentRetriever.java",
+        "Hash": "1788060b628713faf8372d525197b431"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/rag/retriever/AdvancedBasicInfoContentRetriever.java",
+        "Hash": "a340f2129250e3ea88c4b5b91141e104"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/rag/retriever/AdvancedPeopleDreamsContentRetriever.java",
+        "Hash": "30d4aa3207cf97b73c907ab7cc5dc571"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/rag/retriever/AdvancedPeopleJobsContentRetriever.java",
+        "Hash": "8b34adddb05577dfb994b317a9f87e87"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/rag/retriever/AdvancedPeopleRelationsShipsContentRetriever.java",
+        "Hash": "75c2ace22dc10378d12a8f5495f0467a"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/rag/router/LLMStructuredOutputRouter.java",
+        "Hash": "19a14d8d34c9d29fc41be21787c66a0d"
+    },
+    {
+        "File": "src/main/java/cn/ai/agent/easyaiagent/runner/KnowledgeBaseInitializer.java",
+        "Hash": "504064faa26f1f578926ec269a6a11dd"
     },
     {
         "File": "src/main/java/cn/ai/agent/easyaiagent/systemmessage/EnglishHelperSystemMessage.java",

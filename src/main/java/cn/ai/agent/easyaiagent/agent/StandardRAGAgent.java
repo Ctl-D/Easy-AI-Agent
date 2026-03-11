@@ -18,7 +18,7 @@ public class StandardRAGAgent {
     @Resource(name = "defaultMemory")
     private ChatMemory chatMemory;
 
-    @Resource
+    @Resource(name = "standardRagContentRetriever")
     private ContentRetriever contentRetriever;
 
     /**
@@ -50,7 +50,7 @@ public class StandardRAGAgent {
      *
      * @param message 用户输入的问题
      * @return Result<String> 包装对象，content() 获取文本，sources() 获取召回文档来源，tokenUsage() 获取
-     *         Token 消耗
+     * Token 消耗
      */
     public Result<String> chatWithResult(String message) {
         RAGChatService agent = AiServices.builder(RAGChatService.class)

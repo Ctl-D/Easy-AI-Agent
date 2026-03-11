@@ -1,5 +1,6 @@
 package cn.ai.agent.easyaiagent.agenttest;
 
+import cn.ai.agent.easyaiagent.agent.AdvancedRAGAgent;
 import cn.ai.agent.easyaiagent.agent.EasyRAGAgent;
 import cn.ai.agent.easyaiagent.agent.StandardRAGAgent;
 import com.alibaba.dashscope.utils.JsonUtils;
@@ -19,6 +20,9 @@ public class RAGTest {
 
     @Resource
     private StandardRAGAgent standardRAGAgent;
+
+    @Resource
+    private AdvancedRAGAgent advancedRAGAgent;
 
     @Test
     public void easyTest() {
@@ -42,5 +46,10 @@ public class RAGTest {
         System.out.println(result.content());
         List<Content> sources = result.sources();
         System.out.println(JsonUtils.toJson(sources));
+    }
+
+    @Test
+    public void advancedTest() {
+        System.out.println(advancedRAGAgent.chat("张明远在哪工作？多少岁了？和王建国什么关系？有没有喜欢的人？"));
     }
 }

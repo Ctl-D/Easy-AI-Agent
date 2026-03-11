@@ -12,6 +12,7 @@ import dev.langchain4j.store.embedding.EmbeddingStoreIngestor;
 import jakarta.annotation.Resource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 import java.util.List;
 
@@ -47,7 +48,7 @@ public class RAGConfig {
          *
          * @return 配置完毕的 ContentRetriever Bean，供声明式 AiServices 自动注入使用
          */
-        @Bean
+        @Bean("standardRagContentRetriever")
         public ContentRetriever contentRetriever() {
                 List<Document> documents = FileSystemDocumentLoader.loadDocuments("src/main/resources/rag_doc");
 
